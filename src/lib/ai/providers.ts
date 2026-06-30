@@ -8,5 +8,8 @@ export const AI_PROVIDERS = [
 ];
 
 export interface AIProvider {
-  sendMessage(messages: Message[]): Promise<string>;
+  sendMessage(
+    messages: Message[],
+    model: string,
+  ): Promise<ReadableStream<string>>;
 }

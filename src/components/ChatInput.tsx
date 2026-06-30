@@ -3,9 +3,10 @@ import { useState } from "react";
 
 type ChatInputProps = {
   onSend: (message: string) => void;
+  disabled: boolean;
 };
 
-export function ChatInput({ onSend }: ChatInputProps) {
+export function ChatInput({ onSend, disabled }: ChatInputProps) {
   const [message, setMessage] = useState<string>("");
   async function handleSubmit() {
     if (!message.trim()) return;
@@ -16,7 +17,7 @@ export function ChatInput({ onSend }: ChatInputProps) {
   }
 
   function handleKeyDown(event: React.KeyboardEvent<HTMLInputElement>) {
-    if (event.key === "Enter") {
+    if (event.key === "Enter" && !disabled) {
       handleSubmit();
     }
   }
@@ -35,8 +36,13 @@ export function ChatInput({ onSend }: ChatInputProps) {
           onKeyDown={handleKeyDown}
         />
         <button
-          className=" p-1 border rounded-md border-white bg-red-500"
+          className={
+            disabled
+              ? "p-1 border rounded-md border-white bg-red-500 opacity-50 cursor-not-allowed"
+              : "p-1 border rounded-md border-white bg-red-500 opacity-100"
+          }
           onClick={handleSubmit}
+          disabled={disabled}
         >
           Skicka
         </button>

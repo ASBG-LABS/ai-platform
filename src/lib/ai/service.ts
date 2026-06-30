@@ -13,8 +13,9 @@ export function getAIProvider(type: AIProviderType) {
 export async function sendAIMessage(
   messages: Message[],
   providerType: AIProviderType,
+  model: string,
 ) {
   const provider = getAIProvider(providerType);
 
-  return provider.sendMessage(messages);
+  return provider.sendMessage(messages, model);
 }

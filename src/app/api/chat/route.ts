@@ -6,13 +6,15 @@ export async function POST(request: Request) {
 
     console.log("REQUEST BODY", body);
 
-    const { messages, provider } = body;
+    const { messages, provider, model } = body;
 
-    const response = await sendAIMessage(messages, provider);
+    console.log("ROUTE MODEL:", model);
 
-    console.log("ROUTE AI RESPONSE", response);
+    const stream = await sendAIMessage(messages, provider, model);
 
-    return Response.json({ response });
+    console.log("ROUTE AI RESPONSE", stream);
+
+    return new Response(stream);
   } catch (error) {
     console.error("CHAT API ERROR", error);
 
