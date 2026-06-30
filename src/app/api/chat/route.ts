@@ -1,9 +1,21 @@
-import { askOllama } from "@/lib/ollama";
+import { sendAIMessage } from "@/lib/ai/service";
 
 export async function POST(request: Request) {
-  const { message } = await request.json();
+  try {
+    const body = await request.json();
 
-  const response = await askOllama(message);
+    console.log("REQUEST BODY", body);
 
-  return Response.json({ response });
+    const { messages, provider } = body;
+
+    const response = await sendAIMessage(messages, provider);
+
+    console.log("ROUTE AI RESPONSE", response);
+
+    return Response.json({ response });
+  } catch (error) {
+    console.error("CHAT API ERROR", error);
+
+    return Response.json({ error: "Something went wrong" }, { status: 500 });
+  }
 }
