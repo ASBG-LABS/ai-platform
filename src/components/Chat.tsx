@@ -10,8 +10,11 @@ export function Chat() {
   const [selectedModel, setSelectedModel] = useState(AI_MODELS[0]);
   const [isModelOpen, setIsModelOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   async function sendMessage(message: string) {
+    setErrorMessage(null);
+
     const userMessage: Message = {
       role: "user",
       content: message,
@@ -44,6 +47,22 @@ export function Chat() {
       });
 
       console.log("Response Status", response.status);
+      if (!response.ok) {
+        const data = await response.json();
+
+        const errorText = data.error ?? "Ett okänt fel uppstod.";
+
+        setErrorMessage(`${errorText} (status: ${response.status})`);
+
+        console.error("CHAT API ERROR", {
+          status: response.status,
+          error: data.error,
+        });
+
+        setMessages((prev) => prev.slice(0, -1));
+
+        return;
+      }
       console.log("Content POST", message);
 
       const reader = response.body?.getReader();
@@ -86,6 +105,20 @@ export function Chat() {
 
   return (
     <div className="chat-container h-full w-full flex flex-col justify-between">
+      {errorMessage && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70">
+          <div className="rounded-md border bg-black px-6 py-5 shadow-lg max-w-md">
+            <p className="mb-4">{errorMessage}</p>
+            <button
+              type="button"
+              onClick={() => setErrorMessage(null)}
+              className="text-sm underline"
+            >
+              Stäng
+            </button>
+          </div>
+        </div>
+      )}
       <div className="relative">
         <button
           type="button"
