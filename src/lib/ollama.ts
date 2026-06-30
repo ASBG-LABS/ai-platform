@@ -16,5 +16,6 @@ export async function askOllama(prompt: string) {
     throw new Error("Failed to Communicate with Ollama");
   }
   const data = await response.json();
+  console.log("Ollama raw response:", data);
   return data.response;
 }
