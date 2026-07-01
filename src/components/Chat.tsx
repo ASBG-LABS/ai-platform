@@ -4,12 +4,13 @@ import { ChatMessages } from "./ChatMessages";
 import { useState } from "react";
 import { useChat } from "@/hooks/useChat";
 import { AI_MODELS } from "@/lib/ai/models";
-import { getActiveProject } from "@/lib/projects/projectStore";
+import { useProject } from "@/hooks/useProject";
 
 export function Chat() {
   const [selectedModel, setSelectedModel] = useState(AI_MODELS[0]);
   const [isModelOpen, setIsModelOpen] = useState(false);
-  const activeProject = getActiveProject();
+
+  const { project } = useProject();
 
   const {
     messages,
@@ -21,7 +22,7 @@ export function Chat() {
   } = useChat({
     provider: selectedModel.provider,
     model: selectedModel.model,
-    projectId: activeProject?.id ?? "asbg-labs",
+    projectId: project?.id ?? "asbg-labs",
   });
 
   return (
