@@ -1,11 +1,21 @@
-import { useRef, useState, useSyncExternalStore } from "react";
+import { useState, useSyncExternalStore } from "react";
 import type { Message } from "@/types/chat";
-import { parseAIStream } from "@/lib/ai/streamParser";
+import {
+  getGenerationMessages,
+  hasActiveGeneration,
+  setGenerationMessages,
+  shouldSaveGeneration,
+  startGeneration,
+} from "@/lib/ai/generationRuntime";
+import { generationManager } from "@/lib/ai/generationManager";
 import type { Conversation } from "@/types/conversation";
 import {
   getActiveConversation,
+  getConversationRuntime,
   saveConversation,
+  setConversationLoading,
   subscribeToConversations,
+  subscribeToConversationRuntime,
 } from "@/lib/chat/conversationStore";
 
 interface UseChatOptions {
@@ -18,6 +28,12 @@ function getConversationSnapshot() {
   return getActiveConversation();
 }
 
+const defaultConversationRuntime = { isLoading: false, error: null };
+
+function getGenerationSnapshot(conversationId: string) {
+  return generationManager.getByConversation(conversationId) ?? null;
+}
+
 export function useChat({ provider, model, projectId }: UseChatOptions) {
   const activeConversation = useSyncExternalStore(
     subscribeToConversations,
@@ -25,29 +41,50 @@ export function useChat({ provider, model, projectId }: UseChatOptions) {
     () => null,
   );
 
-  const [conversation, setConversation] = useState<Conversation>(
-    () =>
-      activeConversation ?? {
-        id: crypto.randomUUID(),
-        projectId,
-        messages: [],
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      },
+  const [fallbackConversation] = useState<Conversation>(() => ({
+    id: crypto.randomUUID(),
+    projectId,
+    messages: [],
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  }));
+
+  const conversation = activeConversation ?? fallbackConversation;
+
+  const [messagesByConversation, setMessagesByConversation] = useState<
+    Record<string, Message[]>
+  >({});
+
+  const messages =
+    messagesByConversation[conversation.id] ?? conversation.messages;
+
+  const conversationId = activeConversation?.id ?? conversation.id;
+  const conversationRuntime = useSyncExternalStore(
+    subscribeToConversationRuntime,
+    () => getConversationRuntime(conversationId),
+    () => defaultConversationRuntime,
   );
 
-  const [messages, setMessages] = useState<Message[]>(
-    activeConversation?.messages ?? [],
+  const generation = useSyncExternalStore(
+    generationManager.subscribe.bind(generationManager),
+    () => getGenerationSnapshot(conversationId),
+    () => null,
   );
 
-  const messagesRef = useRef(messages);
-  const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [errorCode, setErrorCode] = useState<string | null>(null);
 
   async function sendMessage(message: string) {
     setErrorMessage(null);
     setErrorCode(null);
+    const conversationAtSend = activeConversation ?? conversation;
+
+    if (hasActiveGeneration(conversationAtSend.id)) {
+      return;
+    }
+
+    const generation = generationManager.create(conversationAtSend.id);
+    console.log("GENERATION CREATED", generation);
 
     const userMessage: Message = {
       id: crypto.randomUUID(),
@@ -63,83 +100,113 @@ export function useChat({ provider, model, projectId }: UseChatOptions) {
       createdAt: new Date(),
     };
 
-    const currentMessages = [...messagesRef.current, userMessage];
+    const currentMessages = [
+      ...(activeConversation?.messages ??
+        (getGenerationMessages(conversationAtSend.id) as Message[])),
+      userMessage,
+    ];
     const updatedMessages = [...currentMessages, assistantMessage];
 
-    setIsLoading(true);
-    setMessages(updatedMessages);
-    messagesRef.current = updatedMessages;
+    setMessagesByConversation((current) => ({
+      ...current,
+      [conversationAtSend.id]: updatedMessages,
+    }));
+    setGenerationMessages(conversationAtSend.id, updatedMessages);
 
     const updatedConversation: Conversation = {
-      ...conversation,
+      ...conversationAtSend,
       projectId,
       messages: updatedMessages,
       updatedAt: new Date(),
     };
 
-    setConversation(updatedConversation);
     saveConversation(updatedConversation);
 
     try {
-      const response = await fetch("/api/chat", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          messages: currentMessages,
-          provider,
-          model,
-        }),
-      });
-
-      if (!response.ok || !response.body) {
-        throw new Error("No stream response received from AI.");
-      }
-
-      for await (const data of parseAIStream(response.body)) {
-        switch (data.type) {
-          case "message": {
-            const updatedMessages = [...messagesRef.current];
+      await startGeneration(
+        currentMessages,
+        model,
+        provider,
+        conversationAtSend.id,
+        {
+          onStart: () => {
+            console.log("GENERATION STARTED", generation.id);
+            generationManager.update(generation.id, {
+              status: "running",
+            });
+            setConversationLoading(conversationAtSend.id, true);
+          },
+          onMessage: (content) => {
+            const updatedMessages = [
+              ...(getGenerationMessages(conversationAtSend.id) as Message[]),
+            ];
             const lastMessage = updatedMessages[updatedMessages.length - 1];
 
             if (lastMessage) {
               updatedMessages[updatedMessages.length - 1] = {
                 ...lastMessage,
-                content: lastMessage.content + data.content,
+                content: lastMessage.content + content,
               };
 
               const updatedConversation: Conversation = {
-                ...conversation,
+                ...conversationAtSend,
                 projectId,
                 messages: updatedMessages,
                 updatedAt: new Date(),
               };
 
-              setMessages(updatedMessages);
-              messagesRef.current = updatedMessages;
-              setConversation(updatedConversation);
-              saveConversation(updatedConversation);
+              setMessagesByConversation((current) => ({
+                ...current,
+                [conversationAtSend.id]: updatedMessages,
+              }));
+              setGenerationMessages(conversationAtSend.id, updatedMessages);
+
+              if (shouldSaveGeneration(conversationAtSend.id)) {
+                saveConversation(updatedConversation);
+              }
             }
+          },
+          onDone: () => {
+            console.log("GENERATION COMPLETED", generation.id);
+            const finalMessages = getGenerationMessages(
+              conversationAtSend.id,
+            ) as Message[];
 
-            break;
-          }
+            const finalConversation: Conversation = {
+              ...conversationAtSend,
+              projectId,
+              messages: finalMessages,
+              updatedAt: new Date(),
+            };
 
-          case "error":
-            setErrorMessage(data.message);
-            setErrorCode(data.code ?? null);
-            break;
-
-          case "done":
-            break;
-        }
-      }
+            saveConversation(finalConversation);
+            generationManager.update(generation.id, {
+              status: "completed",
+            });
+            setConversationLoading(conversationAtSend.id, false);
+          },
+          onError: (message) => {
+            console.log("GENERATION FAILED", generation.id, message);
+            setErrorMessage(message);
+            generationManager.update(generation.id, {
+              status: "failed",
+              error: message,
+            });
+            setConversationLoading(conversationAtSend.id, false);
+          },
+        },
+      );
     } catch (error) {
+      console.log("GENERATION CATCH FAILED", generation.id, error);
       setErrorMessage(
         error instanceof Error ? error.message : "Unknown error occurred.",
       );
-    } finally {
-      setIsLoading(false);
+      generationManager.update(generation.id, {
+        status: "failed",
+        error:
+          error instanceof Error ? error.message : "Unknown error occurred.",
+      });
+      setConversationLoading(conversationAtSend.id, false);
     }
   }
 
@@ -148,8 +215,11 @@ export function useChat({ provider, model, projectId }: UseChatOptions) {
     setErrorCode(null);
   }
 
+  const isLoading =
+    generation?.status === "queued" || generation?.status === "running";
+
   return {
-    messages,
+    messages: isLoading ? messages : (activeConversation?.messages ?? messages),
     sendMessage,
     isLoading,
     errorMessage,

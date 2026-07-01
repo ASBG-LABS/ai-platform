@@ -3,6 +3,8 @@ import { useState } from "react";
 
 type ChatInputProps = {
   onSend: (message: string) => void;
+  // This value must represent the runtime state of the currently active conversation,
+  // not a global application loading state.
   disabled: boolean;
 };
 

@@ -1,0 +1,15 @@
+User
+↓
+Next.js UI
+↓
+API Route
+↓
+generationRuntime
+↓
+queueManager
+↓
+chatApi
+↓
+Ollama
+↓
+Local Model

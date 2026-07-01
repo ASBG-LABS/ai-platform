@@ -6,10 +6,9 @@ import Markdown from "react-markdown";
 
 type ChatMessagesProps = {
   messages: Message[];
-  isLoading: boolean;
 };
 
-export function ChatMessages({ messages, isLoading }: ChatMessagesProps) {
+export function ChatMessages({ messages }: ChatMessagesProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -32,11 +31,6 @@ export function ChatMessages({ messages, isLoading }: ChatMessagesProps) {
           </div>
         );
       })}
-      {isLoading && !messages.at(-1)?.content && (
-        <div>
-          <p>Thinking...</p>
-        </div>
-      )}
       <div ref={bottomRef} />
     </div>
   );

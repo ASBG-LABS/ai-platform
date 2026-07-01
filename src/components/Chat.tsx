@@ -76,7 +76,7 @@ export function Chat() {
         )}
       </div>
       <div className="h-full w-full flex flex-col justify-between">
-        <ChatMessages messages={messages} isLoading={isLoading} />
+        <ChatMessages messages={messages} />
         <ChatInput onSend={sendMessage} disabled={isLoading} />
       </div>
     </div>
