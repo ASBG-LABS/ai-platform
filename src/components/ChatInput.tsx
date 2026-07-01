@@ -26,7 +26,7 @@ export function ChatInput({ onSend, disabled }: ChatInputProps) {
       <div className="input-container flex flex-row justify-between">
         <input
           type="text"
-          placeholder="Skriv meddelande här..."
+          placeholder="Type your message here..."
           className="border border-white p-1 rounded-md flex flex-row w-full"
           value={message}
           onChange={(e) => {
@@ -44,7 +44,7 @@ export function ChatInput({ onSend, disabled }: ChatInputProps) {
           onClick={handleSubmit}
           disabled={disabled}
         >
-          Skicka
+          Send
         </button>
       </div>
     </>

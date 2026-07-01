@@ -16,7 +16,7 @@ async function validateOllamaAvailability(model: string) {
     if (!response.ok) {
       throw createAIError(
         "OLLAMA_OFFLINE",
-        "Ollama körs inte. Starta Ollama och försök igen.",
+        "Ollama is not running. Start Ollama and try again.",
         {
           provider: "ollama",
         },
@@ -32,7 +32,7 @@ async function validateOllamaAvailability(model: string) {
     if (!exists) {
       throw createAIError(
         "MODEL_NOT_FOUND",
-        `Modellen ${model} hittades inte.`,
+        `The model ${model} was not found.`,
         {
           model,
           provider: "ollama",
@@ -47,7 +47,7 @@ async function validateOllamaAvailability(model: string) {
     if (error instanceof TypeError) {
       throw createAIError(
         "OLLAMA_OFFLINE",
-        "Ollama körs inte. Starta Ollama och försök igen.",
+        "Ollama is not running. Start Ollama and try again.",
         {
           provider: "ollama",
         },
@@ -56,7 +56,7 @@ async function validateOllamaAvailability(model: string) {
 
     throw createAIError(
       "UNKNOWN",
-      "Ett okänt fel uppstod vid kontroll av Ollama.",
+      "An unknown error occurred while checking Ollama.",
       {
         provider: "ollama",
       },
@@ -92,14 +92,14 @@ export const ollamaProvider: AIProvider = {
       if (error instanceof DOMException && error.name === "AbortError") {
         throw createAIError(
           "OLLAMA_TIMEOUT",
-          "Ollama svarar inte. Försök igen.",
+          "Ollama is not responding. Try again.",
           {
             provider: "ollama",
           },
         );
       }
 
-      throw createAIError("OLLAMA_OFFLINE", "Kunde inte ansluta till Ollama.", {
+      throw createAIError("OLLAMA_OFFLINE", "Could not connect to Ollama.", {
         provider: "ollama",
       });
     } finally {
@@ -117,7 +117,7 @@ export const ollamaProvider: AIProvider = {
     }
 
     if (!response.body) {
-      throw createAIError("UNKNOWN", "Ollama skickade inget svar.", {
+      throw createAIError("UNKNOWN", "Ollama returned no response.", {
         provider: "ollama",
       });
     }

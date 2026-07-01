@@ -11,7 +11,7 @@ export function getAIProvider(providerType: AIProviderType) {
     default:
       throw createAIError(
         "UNKNOWN",
-        `AI provider ${providerType} stöds inte.`,
+        `AI provider ${providerType} is not supported.`,
         {
           provider: providerType,
         },

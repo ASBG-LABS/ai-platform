@@ -34,7 +34,7 @@ export function ChatMessages({ messages, isLoading }: ChatMessagesProps) {
       })}
       {isLoading && !messages.at(-1)?.content && (
         <div>
-          <p>Tänker...</p>
+          <p>Thinking...</p>
         </div>
       )}
       <div ref={bottomRef} />

@@ -52,7 +52,7 @@ export function Chat() {
       if (!response.ok) {
         const data = await response.json();
 
-        const errorText = data.error ?? "Ett okänt fel uppstod.";
+        const errorText = data.error ?? "An unknown error occurred.";
 
         setErrorMessage(errorText);
         setErrorCode(data.code ?? null);
@@ -71,7 +71,7 @@ export function Chat() {
       const reader = response.body?.getReader();
 
       if (!reader) {
-        setErrorMessage("Inget stream-svar från AI.");
+        setErrorMessage("No stream response received from AI.");
         return;
       }
 
@@ -127,9 +127,9 @@ export function Chat() {
           <div className="rounded-md border bg-black px-6 py-5 shadow-lg max-w-md">
             <p className="mb-4">
               {errorCode === "OLLAMA_OFFLINE"
-                ? "Ollama körs inte. Starta Ollama och försök igen."
+                ? "Ollama is not running. Start Ollama and try again."
                 : errorCode === "MODEL_NOT_FOUND"
-                  ? "Den valda modellen hittades inte. Kontrollera modellinställningarna."
+                  ? "The selected model was not found. Check your model settings."
                   : errorMessage}
             </p>
             <button
