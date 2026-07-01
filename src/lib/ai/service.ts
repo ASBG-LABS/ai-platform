@@ -1,7 +1,6 @@
 import { ollamaProvider } from "./ollama";
 import type { Message } from "@/types/chat";
-
-export type AIProviderType = "ollama";
+import { AIProviderType } from "./providers";
 
 export function getAIProvider(type: AIProviderType) {
   switch (type) {

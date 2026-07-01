@@ -1,3 +1,4 @@
+import { createOllamaStream } from "@/lib/ai/ollamaParser";
 import { sendAIMessage } from "@/lib/ai/service";
 
 export async function POST(request: Request) {
@@ -10,7 +11,9 @@ export async function POST(request: Request) {
 
     console.log("ROUTE MODEL:", model);
 
-    const stream = await sendAIMessage(messages, provider, model);
+    const response = await sendAIMessage(messages, provider, model);
+
+    const stream = await createOllamaStream(response);
 
     console.log("ROUTE AI RESPONSE", stream);
 
@@ -18,6 +21,11 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error("CHAT API ERROR", error);
 
-    return Response.json({ error: "Something went wrong" }, { status: 500 });
+    return Response.json(
+      {
+        error: error instanceof Error ? error.message : "Something went wrong",
+      },
+      { status: 503 },
+    );
   }
 }

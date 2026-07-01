@@ -52,7 +52,7 @@ export function Chat() {
 
         const errorText = data.error ?? "Ett okänt fel uppstod.";
 
-        setErrorMessage(`${errorText} (status: ${response.status})`);
+        setErrorMessage(errorText);
 
         console.error("CHAT API ERROR", {
           status: response.status,
@@ -94,6 +94,14 @@ export function Chat() {
 
             return updated;
           });
+        }
+
+        if (data.type === "error") {
+          setErrorMessage(data.message);
+
+          setMessages((prev) => prev.slice(0, -1));
+
+          break;
         }
 
         console.log("returned answer", text);

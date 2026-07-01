@@ -1,6 +1,8 @@
 import { Message } from "@/types/chat";
 import { ollamaProvider } from "./ollama";
 
+export type AIProviderType = "ollama";
+
 export const AI_PROVIDERS = [
   {
     ollama: ollamaProvider,
@@ -8,8 +10,5 @@ export const AI_PROVIDERS = [
 ];
 
 export interface AIProvider {
-  sendMessage(
-    messages: Message[],
-    model: string,
-  ): Promise<ReadableStream<string>>;
+  sendMessage(messages: Message[], model: string): Promise<Response>;
 }

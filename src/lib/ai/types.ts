@@ -6,3 +6,16 @@ export type AIModel = {
   model: string;
   provider: AIProviderType;
 };
+
+export type AIStreamEvent =
+  | {
+      type: "message";
+      content: string;
+    }
+  | {
+      type: "done";
+    }
+  | {
+      type: "error";
+      message: string;
+    };
