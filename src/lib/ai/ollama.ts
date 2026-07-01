@@ -1,10 +1,11 @@
 import type { Message } from "@/types/chat";
 import type { AIProvider } from "./providers";
+import { createAIError, isAIError } from "./errors";
 
 const OLLAMA_URL = "http://localhost:11434/api/chat";
 const OLLAMA_HEALTH_URL = "http://localhost:11434/api/tags";
 
-async function checkOllama(model: string) {
+async function validateOllamaAvailability(model: string) {
   try {
     const response = await fetch(OLLAMA_HEALTH_URL, {
       signal: AbortSignal.timeout(3000),
@@ -13,7 +14,13 @@ async function checkOllama(model: string) {
     console.log("OLLAMA HEALTH:", response.status);
 
     if (!response.ok) {
-      throw new Error("OLLAMA_OFFLINE");
+      throw createAIError(
+        "OLLAMA_OFFLINE",
+        "Ollama körs inte. Starta Ollama och försök igen.",
+        {
+          provider: "ollama",
+        },
+      );
     }
 
     const data = await response.json();
@@ -23,14 +30,37 @@ async function checkOllama(model: string) {
     );
 
     if (!exists) {
-      throw new Error(`MODEL_NOT_FOUND:${model}`);
+      throw createAIError(
+        "MODEL_NOT_FOUND",
+        `Modellen ${model} hittades inte.`,
+        {
+          model,
+          provider: "ollama",
+        },
+      );
     }
   } catch (error) {
-    if (error instanceof Error) {
+    if (isAIError(error)) {
       throw error;
     }
 
-    throw new Error("OLLAMA_OFFLINE");
+    if (error instanceof TypeError) {
+      throw createAIError(
+        "OLLAMA_OFFLINE",
+        "Ollama körs inte. Starta Ollama och försök igen.",
+        {
+          provider: "ollama",
+        },
+      );
+    }
+
+    throw createAIError(
+      "UNKNOWN",
+      "Ett okänt fel uppstod vid kontroll av Ollama.",
+      {
+        provider: "ollama",
+      },
+    );
   }
 }
 
@@ -38,7 +68,7 @@ export const ollamaProvider: AIProvider = {
   async sendMessage(messages: Message[], model: string) {
     console.log("OLAMMA PROVIDER START", messages);
 
-    await checkOllama(model);
+    await validateOllamaAvailability(model);
 
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 10000);
@@ -60,20 +90,36 @@ export const ollamaProvider: AIProvider = {
       });
     } catch (error) {
       if (error instanceof DOMException && error.name === "AbortError") {
-        throw new Error("Ollama svarar inte. Försök igen.");
+        throw createAIError(
+          "OLLAMA_TIMEOUT",
+          "Ollama svarar inte. Försök igen.",
+          {
+            provider: "ollama",
+          },
+        );
       }
 
-      throw new Error("Kunde inte ansluta till Ollama.");
+      throw createAIError("OLLAMA_OFFLINE", "Kunde inte ansluta till Ollama.", {
+        provider: "ollama",
+      });
     } finally {
       clearTimeout(timeout);
     }
 
     if (!response.ok) {
-      throw new Error(`Ollama error: ${response.status}`);
+      throw createAIError(
+        "UNKNOWN",
+        `Ollama returnerade status ${response.status}.`,
+        {
+          provider: "ollama",
+        },
+      );
     }
 
     if (!response.body) {
-      throw new Error("Ollama skickade inget svar.");
+      throw createAIError("UNKNOWN", "Ollama skickade inget svar.", {
+        provider: "ollama",
+      });
     }
 
     return response;

@@ -11,9 +11,11 @@ export function Chat() {
   const [isModelOpen, setIsModelOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [errorCode, setErrorCode] = useState<string | null>(null);
 
   async function sendMessage(message: string) {
     setErrorMessage(null);
+    setErrorCode(null);
 
     const userMessage: Message = {
       role: "user",
@@ -53,6 +55,7 @@ export function Chat() {
         const errorText = data.error ?? "Ett okänt fel uppstod.";
 
         setErrorMessage(errorText);
+        setErrorCode(data.code ?? null);
 
         console.error("CHAT API ERROR", {
           status: response.status,
@@ -98,6 +101,7 @@ export function Chat() {
 
         if (data.type === "error") {
           setErrorMessage(data.message);
+          setErrorCode(data.code ?? null);
 
           setMessages((prev) => prev.slice(0, -1));
 
@@ -116,10 +120,19 @@ export function Chat() {
       {errorMessage && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70">
           <div className="rounded-md border bg-black px-6 py-5 shadow-lg max-w-md">
-            <p className="mb-4">{errorMessage}</p>
+            <p className="mb-4">
+              {errorCode === "OLLAMA_OFFLINE"
+                ? "Ollama körs inte. Starta Ollama och försök igen."
+                : errorCode === "MODEL_NOT_FOUND"
+                  ? "Den valda modellen hittades inte. Kontrollera modellinställningarna."
+                  : errorMessage}
+            </p>
             <button
               type="button"
-              onClick={() => setErrorMessage(null)}
+              onClick={() => {
+                setErrorMessage(null);
+                setErrorCode(null);
+              }}
               className="text-sm underline"
             >
               Stäng

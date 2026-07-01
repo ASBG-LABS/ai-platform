@@ -1,5 +1,27 @@
 import { createOllamaStream } from "@/lib/ai/ollamaParser";
 import { sendAIMessage } from "@/lib/ai/service";
+import { isAIError } from "@/lib/ai/errors";
+
+function createErrorStream(error: unknown) {
+  const payload = isAIError(error)
+    ? {
+        type: "error",
+        code: error.code,
+        message: error.message,
+      }
+    : {
+        type: "error",
+        code: "UNKNOWN",
+        message: "Something went wrong",
+      };
+
+  return new ReadableStream({
+    start(controller) {
+      controller.enqueue(JSON.stringify(payload));
+      controller.close();
+    },
+  });
+}
 
 export async function POST(request: Request) {
   try {
@@ -21,11 +43,10 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error("CHAT API ERROR", error);
 
-    return Response.json(
-      {
-        error: error instanceof Error ? error.message : "Something went wrong",
+    return new Response(createErrorStream(error), {
+      headers: {
+        "Content-Type": "application/json",
       },
-      { status: 503 },
-    );
+    });
   }
 }

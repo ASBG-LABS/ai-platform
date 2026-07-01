@@ -1,11 +1,21 @@
 import { ollamaProvider } from "./ollama";
 import type { Message } from "@/types/chat";
 import { AIProviderType } from "./providers";
+import { createAIError } from "./errors";
 
-export function getAIProvider(type: AIProviderType) {
-  switch (type) {
+export function getAIProvider(providerType: AIProviderType) {
+  switch (providerType) {
     case "ollama":
       return ollamaProvider;
+
+    default:
+      throw createAIError(
+        "UNKNOWN",
+        `AI provider ${providerType} stöds inte.`,
+        {
+          provider: providerType,
+        },
+      );
   }
 }
 
