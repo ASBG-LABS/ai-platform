@@ -109,7 +109,7 @@ export const ollamaProvider: AIProvider = {
     if (!response.ok) {
       throw createAIError(
         "UNKNOWN",
-        `Ollama returnerade status ${response.status}.`,
+        `Ollama returned status ${response.status}.`,
         {
           provider: "ollama",
         },

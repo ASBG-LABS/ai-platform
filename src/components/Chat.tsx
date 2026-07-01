@@ -4,6 +4,7 @@ import { ChatMessages } from "./ChatMessages";
 import { useState } from "react";
 import type { Message } from "@/types/chat";
 import { AI_MODELS } from "@/lib/ai/models";
+import { parseAIStream } from "@/lib/ai/streamParser";
 
 export function Chat() {
   const [messages, setMessages] = useState<Message[]>([]);
@@ -68,24 +69,12 @@ export function Chat() {
       }
       console.log("Content POST", message);
 
-      const reader = response.body?.getReader();
-
-      if (!reader) {
+      if (!response.body) {
         setErrorMessage("No stream response received from AI.");
         return;
       }
 
-      const decoder = new TextDecoder();
-
-      while (true) {
-        const { done, value } = await reader.read();
-
-        if (done) break;
-
-        const text = decoder.decode(value, { stream: true });
-
-        const data = JSON.parse(text);
-
+      for await (const data of parseAIStream(response.body)) {
         switch (data.type) {
           case "message":
             setMessages((prev) => {
@@ -112,8 +101,6 @@ export function Chat() {
           case "done":
             break;
         }
-
-        console.log("returned answer", text);
       }
     } finally {
       setIsLoading(false);
