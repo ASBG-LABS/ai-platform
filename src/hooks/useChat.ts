@@ -1,26 +1,46 @@
-import { useState } from "react";
+import { useRef, useState, useSyncExternalStore } from "react";
 import type { Message } from "@/types/chat";
 import { parseAIStream } from "@/lib/ai/streamParser";
 import type { Conversation } from "@/types/conversation";
-import { saveConversation } from "@/lib/chat/conversationStore";
+import {
+  getLatestConversation,
+  saveConversation,
+  subscribeToConversations,
+} from "@/lib/chat/conversationStore";
 
 interface UseChatOptions {
   provider: string;
   model: string;
 }
 
+function getConversationSnapshot() {
+  return getLatestConversation();
+}
+
 export function useChat({ provider, model }: UseChatOptions) {
-  const [messages, setMessages] = useState<Message[]>([]);
+  const latestConversation = useSyncExternalStore(
+    subscribeToConversations,
+    getConversationSnapshot,
+    () => null,
+  );
+
+  const [conversation, setConversation] = useState<Conversation>(
+    () =>
+      latestConversation ?? {
+        id: crypto.randomUUID(),
+        messages: [],
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+  );
+
+  const initialMessages = latestConversation?.messages ?? [];
+
+  const [messages, setMessages] = useState<Message[]>(initialMessages);
+  const messagesRef = useRef(messages);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [errorCode, setErrorCode] = useState<string | null>(null);
-
-  const [conversation, setConversation] = useState<Conversation>({
-    id: crypto.randomUUID(),
-    messages: [],
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  });
 
   async function sendMessage(message: string) {
     setErrorMessage(null);
@@ -46,6 +66,7 @@ export function useChat({ provider, model }: UseChatOptions) {
     const updatedMessages = [...currentMessages, assistantMessage];
 
     setMessages(updatedMessages);
+    messagesRef.current = updatedMessages;
 
     const updatedConversation: Conversation = {
       ...conversation,
@@ -76,14 +97,10 @@ export function useChat({ provider, model }: UseChatOptions) {
       for await (const data of parseAIStream(response.body)) {
         switch (data.type) {
           case "message": {
-            setMessages((prev) => {
-              const updatedMessages = [...prev];
-              const lastMessage = updatedMessages[updatedMessages.length - 1];
+            const updatedMessages = [...messagesRef.current];
+            const lastMessage = updatedMessages[updatedMessages.length - 1];
 
-              if (!lastMessage) {
-                return prev;
-              }
-
+            if (lastMessage) {
               updatedMessages[updatedMessages.length - 1] = {
                 ...lastMessage,
                 content: lastMessage.content + data.content,
@@ -95,11 +112,11 @@ export function useChat({ provider, model }: UseChatOptions) {
                 updatedAt: new Date(),
               };
 
+              setMessages(updatedMessages);
+              messagesRef.current = updatedMessages;
               setConversation(updatedConversation);
               saveConversation(updatedConversation);
-
-              return updatedMessages;
-            });
+            }
 
             break;
           }
@@ -127,8 +144,10 @@ export function useChat({ provider, model }: UseChatOptions) {
     setErrorCode(null);
   }
 
+  const displayedMessages = latestConversation?.messages ?? messages;
+
   return {
-    messages,
+    messages: displayedMessages,
     sendMessage,
     isLoading,
     errorMessage,
