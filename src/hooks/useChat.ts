@@ -1,6 +1,8 @@
 import { useState } from "react";
 import type { Message } from "@/types/chat";
 import { parseAIStream } from "@/lib/ai/streamParser";
+import type { Conversation } from "@/types/conversation";
+import { saveConversation } from "@/lib/chat/conversationStore";
 
 interface UseChatOptions {
   provider: string;
@@ -12,6 +14,13 @@ export function useChat({ provider, model }: UseChatOptions) {
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [errorCode, setErrorCode] = useState<string | null>(null);
+
+  const [conversation, setConversation] = useState<Conversation>({
+    id: crypto.randomUUID(),
+    messages: [],
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  });
 
   async function sendMessage(message: string) {
     setErrorMessage(null);
@@ -34,7 +43,18 @@ export function useChat({ provider, model }: UseChatOptions) {
     const currentMessages = [...messages, userMessage];
 
     setIsLoading(true);
-    setMessages((prev) => [...prev, userMessage, assistantMessage]);
+    const updatedMessages = [...currentMessages, assistantMessage];
+
+    setMessages(updatedMessages);
+
+    const updatedConversation: Conversation = {
+      ...conversation,
+      messages: updatedMessages,
+      updatedAt: new Date(),
+    };
+
+    setConversation(updatedConversation);
+    saveConversation(updatedConversation);
 
     try {
       const response = await fetch("/api/chat", {
@@ -55,19 +75,34 @@ export function useChat({ provider, model }: UseChatOptions) {
 
       for await (const data of parseAIStream(response.body)) {
         switch (data.type) {
-          case "message":
+          case "message": {
             setMessages((prev) => {
-              const updated = [...prev];
-              const lastMessage = updated[updated.length - 1];
+              const updatedMessages = [...prev];
+              const lastMessage = updatedMessages[updatedMessages.length - 1];
 
-              updated[updated.length - 1] = {
+              if (!lastMessage) {
+                return prev;
+              }
+
+              updatedMessages[updatedMessages.length - 1] = {
                 ...lastMessage,
                 content: lastMessage.content + data.content,
               };
 
-              return updated;
+              const updatedConversation: Conversation = {
+                ...conversation,
+                messages: updatedMessages,
+                updatedAt: new Date(),
+              };
+
+              setConversation(updatedConversation);
+              saveConversation(updatedConversation);
+
+              return updatedMessages;
             });
+
             break;
+          }
 
           case "error":
             setErrorMessage(data.message);
