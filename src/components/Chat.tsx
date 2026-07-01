@@ -2,110 +2,24 @@
 import { ChatInput } from "./ChatInput";
 import { ChatMessages } from "./ChatMessages";
 import { useState } from "react";
-import type { Message } from "@/types/chat";
+import { useChat } from "@/hooks/useChat";
 import { AI_MODELS } from "@/lib/ai/models";
-import { parseAIStream } from "@/lib/ai/streamParser";
 
 export function Chat() {
-  const [messages, setMessages] = useState<Message[]>([]);
   const [selectedModel, setSelectedModel] = useState(AI_MODELS[0]);
   const [isModelOpen, setIsModelOpen] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [errorCode, setErrorCode] = useState<string | null>(null);
 
-  async function sendMessage(message: string) {
-    setErrorMessage(null);
-    setErrorCode(null);
-
-    const userMessage: Message = {
-      role: "user",
-      content: message,
-    };
-
-    const updateMessages = [...messages, userMessage];
-
-    setIsLoading(true);
-    setMessages([
-      ...updateMessages,
-      {
-        role: "assistant",
-        content: "",
-      },
-    ]);
-
-    console.log("Updating state message", message);
-
-    try {
-      const response = await fetch("/api/chat", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          messages: updateMessages,
-          provider: selectedModel.provider,
-          model: selectedModel.model,
-        }),
-      });
-
-      console.log("Response Status", response.status);
-      if (!response.ok) {
-        const data = await response.json();
-
-        const errorText = data.error ?? "An unknown error occurred.";
-
-        setErrorMessage(errorText);
-        setErrorCode(data.code ?? null);
-
-        console.error("CHAT API ERROR", {
-          status: response.status,
-          error: data.error,
-        });
-
-        setMessages((prev) => prev.slice(0, -1));
-
-        return;
-      }
-      console.log("Content POST", message);
-
-      if (!response.body) {
-        setErrorMessage("No stream response received from AI.");
-        return;
-      }
-
-      for await (const data of parseAIStream(response.body)) {
-        switch (data.type) {
-          case "message":
-            setMessages((prev) => {
-              const updated = [...prev];
-              const lastMessage = updated[updated.length - 1];
-
-              updated[updated.length - 1] = {
-                ...lastMessage,
-                content: lastMessage.content + data.content,
-              };
-
-              return updated;
-            });
-            break;
-
-          case "error":
-            setErrorMessage(data.message);
-            setErrorCode(data.code ?? null);
-
-            setMessages((prev) => prev.slice(0, -1));
-
-            break;
-
-          case "done":
-            break;
-        }
-      }
-    } finally {
-      setIsLoading(false);
-    }
-  }
+  const {
+    messages,
+    sendMessage,
+    isLoading,
+    errorMessage,
+    errorCode,
+    clearError,
+  } = useChat({
+    provider: selectedModel.provider,
+    model: selectedModel.model,
+  });
 
   return (
     <div className="chat-container h-full w-full flex flex-col justify-between">
@@ -121,13 +35,10 @@ export function Chat() {
             </p>
             <button
               type="button"
-              onClick={() => {
-                setErrorMessage(null);
-                setErrorCode(null);
-              }}
+              onClick={clearError}
               className="text-sm underline"
             >
-              Stäng
+              Close
             </button>
           </div>
         </div>
