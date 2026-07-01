@@ -3,7 +3,7 @@ import type { Message } from "@/types/chat";
 import { parseAIStream } from "@/lib/ai/streamParser";
 import type { Conversation } from "@/types/conversation";
 import {
-  getLatestConversation,
+  getActiveConversation,
   saveConversation,
   subscribeToConversations,
 } from "@/lib/chat/conversationStore";
@@ -11,14 +11,15 @@ import {
 interface UseChatOptions {
   provider: string;
   model: string;
+  projectId: string;
 }
 
 function getConversationSnapshot() {
-  return getLatestConversation();
+  return getActiveConversation();
 }
 
-export function useChat({ provider, model }: UseChatOptions) {
-  const latestConversation = useSyncExternalStore(
+export function useChat({ provider, model, projectId }: UseChatOptions) {
+  const activeConversation = useSyncExternalStore(
     subscribeToConversations,
     getConversationSnapshot,
     () => null,
@@ -26,17 +27,19 @@ export function useChat({ provider, model }: UseChatOptions) {
 
   const [conversation, setConversation] = useState<Conversation>(
     () =>
-      latestConversation ?? {
+      activeConversation ?? {
         id: crypto.randomUUID(),
+        projectId,
         messages: [],
         createdAt: new Date(),
         updatedAt: new Date(),
       },
   );
 
-  const initialMessages = latestConversation?.messages ?? [];
+  const [messages, setMessages] = useState<Message[]>(
+    activeConversation?.messages ?? [],
+  );
 
-  const [messages, setMessages] = useState<Message[]>(initialMessages);
   const messagesRef = useRef(messages);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -60,16 +63,16 @@ export function useChat({ provider, model }: UseChatOptions) {
       createdAt: new Date(),
     };
 
-    const currentMessages = [...messages, userMessage];
-
-    setIsLoading(true);
+    const currentMessages = [...messagesRef.current, userMessage];
     const updatedMessages = [...currentMessages, assistantMessage];
 
+    setIsLoading(true);
     setMessages(updatedMessages);
     messagesRef.current = updatedMessages;
 
     const updatedConversation: Conversation = {
       ...conversation,
+      projectId,
       messages: updatedMessages,
       updatedAt: new Date(),
     };
@@ -108,6 +111,7 @@ export function useChat({ provider, model }: UseChatOptions) {
 
               const updatedConversation: Conversation = {
                 ...conversation,
+                projectId,
                 messages: updatedMessages,
                 updatedAt: new Date(),
               };
@@ -144,10 +148,8 @@ export function useChat({ provider, model }: UseChatOptions) {
     setErrorCode(null);
   }
 
-  const displayedMessages = latestConversation?.messages ?? messages;
-
   return {
-    messages: displayedMessages,
+    messages,
     sendMessage,
     isLoading,
     errorMessage,
