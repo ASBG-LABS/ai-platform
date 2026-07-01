@@ -1,9 +1,10 @@
 import { createOllamaStream } from "@/lib/ai/ollamaParser";
 import { sendAIMessage } from "@/lib/ai/service";
 import { isAIError } from "@/lib/ai/errors";
+import type { AIStreamEvent } from "@/lib/ai/types";
 
 function createErrorStream(error: unknown) {
-  const payload = isAIError(error)
+  const payload: AIStreamEvent = isAIError(error)
     ? {
         type: "error",
         code: error.code,
@@ -17,7 +18,7 @@ function createErrorStream(error: unknown) {
 
   return new ReadableStream({
     start(controller) {
-      controller.enqueue(JSON.stringify(payload));
+      controller.enqueue(JSON.stringify(payload) + "\n");
       controller.close();
     },
   });
@@ -39,7 +40,11 @@ export async function POST(request: Request) {
 
     console.log("ROUTE AI RESPONSE", stream);
 
-    return new Response(stream);
+    return new Response(stream, {
+      headers: {
+        "Content-Type": "text/event-stream",
+      },
+    });
   } catch (error) {
     console.error("CHAT API ERROR", error);
 

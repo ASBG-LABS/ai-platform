@@ -7,15 +7,18 @@ export type AIModel = {
   provider: AIProviderType;
 };
 
+import type { AIErrorCode } from "./errors";
+
 export type AIStreamEvent =
   | {
       type: "message";
       content: string;
     }
   | {
-      type: "done";
+      type: "error";
+      code: AIErrorCode;
+      message: string;
     }
   | {
-      type: "error";
-      message: string;
+      type: "done";
     };

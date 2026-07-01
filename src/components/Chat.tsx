@@ -71,7 +71,8 @@ export function Chat() {
       const reader = response.body?.getReader();
 
       if (!reader) {
-        throw new Error("No response body");
+        setErrorMessage("Inget stream-svar från AI.");
+        return;
       }
 
       const decoder = new TextDecoder();
@@ -85,27 +86,31 @@ export function Chat() {
 
         const data = JSON.parse(text);
 
-        if (data.type === "message") {
-          setMessages((prev) => {
-            const updated = [...prev];
-            const lastMessage = updated[updated.length - 1];
+        switch (data.type) {
+          case "message":
+            setMessages((prev) => {
+              const updated = [...prev];
+              const lastMessage = updated[updated.length - 1];
 
-            updated[updated.length - 1] = {
-              ...lastMessage,
-              content: lastMessage.content + data.content,
-            };
+              updated[updated.length - 1] = {
+                ...lastMessage,
+                content: lastMessage.content + data.content,
+              };
 
-            return updated;
-          });
-        }
+              return updated;
+            });
+            break;
 
-        if (data.type === "error") {
-          setErrorMessage(data.message);
-          setErrorCode(data.code ?? null);
+          case "error":
+            setErrorMessage(data.message);
+            setErrorCode(data.code ?? null);
 
-          setMessages((prev) => prev.slice(0, -1));
+            setMessages((prev) => prev.slice(0, -1));
 
-          break;
+            break;
+
+          case "done":
+            break;
         }
 
         console.log("returned answer", text);

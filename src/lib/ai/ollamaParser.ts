@@ -1,8 +1,15 @@
 import type { AIStreamEvent } from "./types";
+import { createAIError, isAIError } from "./errors";
+
+function serializeEvent(event: AIStreamEvent) {
+  return JSON.stringify(event) + "\n";
+}
 
 export function createOllamaStream(response: Response): ReadableStream<string> {
   if (!response.body) {
-    throw new Error("Ollama response has no body");
+    throw createAIError("UNKNOWN", "Ollama response has no body", {
+      provider: "ollama",
+    });
   }
 
   const reader = response.body.getReader();
@@ -10,10 +17,9 @@ export function createOllamaStream(response: Response): ReadableStream<string> {
 
   function enqueueEvent(
     controller: ReadableStreamDefaultController<string>,
-
     event: AIStreamEvent,
   ) {
-    controller.enqueue(JSON.stringify(event) + "\n");
+    controller.enqueue(serializeEvent(event));
   }
 
   return new ReadableStream<string>({
@@ -30,17 +36,13 @@ export function createOllamaStream(response: Response): ReadableStream<string> {
             if (buffer.trim()) {
               try {
                 const json = JSON.parse(buffer);
-
                 const content = json.message?.content;
-
                 if (content) {
                   const event: AIStreamEvent = {
                     type: "message",
-
                     content,
                   };
-
-                  controller.enqueue(JSON.stringify(event) + "\n");
+                  controller.enqueue(serializeEvent(event));
                 }
               } catch (error) {
                 console.error("FINAL BUFFER PARSE ERROR", error);
@@ -50,11 +52,8 @@ export function createOllamaStream(response: Response): ReadableStream<string> {
             const event: AIStreamEvent = {
               type: "done",
             };
-
-            controller.enqueue(JSON.stringify(event) + "\n");
-
+            controller.enqueue(serializeEvent(event));
             controller.close();
-
             break;
           }
 
@@ -90,11 +89,19 @@ export function createOllamaStream(response: Response): ReadableStream<string> {
       } catch (error) {
         console.error("OLLAMA STREAM ERROR:", error);
 
-        enqueueEvent(controller, {
-          type: "error",
-          message:
-            error instanceof Error ? error.message : "Unknown stream error",
-        });
+        if (isAIError(error)) {
+          enqueueEvent(controller, {
+            type: "error",
+            code: error.code,
+            message: error.message,
+          });
+        } else {
+          enqueueEvent(controller, {
+            type: "error",
+            code: "UNKNOWN",
+            message: "Unknown stream error",
+          });
+        }
 
         controller.close();
       }
