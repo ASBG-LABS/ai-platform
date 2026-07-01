@@ -1,22 +1,8 @@
-import { ollamaProvider } from "./ollama";
 import type { Message } from "@/types/chat";
-import { AIProviderType } from "./providers";
-import { createAIError } from "./errors";
+import { AI_PROVIDERS, AIProviderType } from "./providers";
 
 export function getAIProvider(providerType: AIProviderType) {
-  switch (providerType) {
-    case "ollama":
-      return ollamaProvider;
-
-    default:
-      throw createAIError(
-        "UNKNOWN",
-        `AI provider ${providerType} is not supported.`,
-        {
-          provider: providerType,
-        },
-      );
-  }
+  return AI_PROVIDERS[providerType];
 }
 
 export async function sendAIMessage(
